@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Formule</title>
+<meta name="theme-color" content="#0d6b4c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Formule">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: una colonna stretta da telefono; ogni formula è una riga che si apre in una "cella" di calcolo */
+:root {
+  --bg: #eef2f0;
+  --surface: #ffffff;
+  --ink: #15201b;
+  --muted: #5d6b64;
+  --line: #d3dcd7;
+  --accent: #0d6b4c;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe6;
+  --danger: #b3261e;
+  --display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1513; --surface: #18201d; --ink: #e4ece8; --muted: #93a39b; --line: #2b3732;
+    --accent: #4cc496; --accent-ink: #06261a; --accent-soft: #1d3a2f; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1513; --surface: #18201d; --ink: #e4ece8; --muted: #93a39b; --line: #2b3732;
+  --accent: #4cc496; --accent-ink: #06261a; --accent-soft: #1d3a2f; --danger: #ff8a80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+h1 span { font-family: var(--mono); font-weight: 500; color: var(--accent); }
+.sync { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 10px 14px; min-height: 44px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+button.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.f { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.f.open { border-color: var(--accent); }
+.f-head { width: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.f-name { font-weight: 600; font-size: 17px; }
+.f-expr { font-family: var(--mono); font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.f-body { border-top: 1px dashed var(--line); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.vars { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+label.var { display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 13px; color: var(--muted); min-width: 0; }
+input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.result { background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.result .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.result .val { font-family: var(--mono); font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.result .val.na { font-size: 15px; font-family: var(--body); color: var(--muted); }
+.result .unit { font-size: 15px; color: var(--muted); margin-left: 6px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row .spacer { flex: 1; }
+
+.editor { background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.editor h2 { font-family: var(--display); font-size: 19px; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.field textarea { font-family: var(--mono); font-size: 16px; min-height: 76px; resize: vertical; }
+.hint { font-size: 13px; color: var(--muted); }
+.hint code { font-family: var(--mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--mono); font-size: 13px; background: var(--accent-soft); color: var(--ink); padding: 3px 9px; border-radius: 999px; }
+.err { color: var(--danger); font-size: 14px; }
+.confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+.empty p { margin: 0; }
+.examples { display: flex; flex-direction: column; gap: 8px; }
+.examples button { text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.examples .f-expr { font-size: 12px; }
+@media (prefers-reduced-motion: no-preference) { .f-body, .editor { animation: in .18s ease-out; } @keyframes in { from { opacity: .4; transform: translateY(-4px); } } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Le mie <span>f(x)</span></h1>
+    <div class="sync" id="sync">Salvato sul telefono</div>
+  </header>
+  <div id="list" class="list"></div>
+  <div id="editorSlot"></div>
+  <button class="primary" id="addBtn">+ Nuova formula</button>
+  <div class="row backup">
+    <button class="ghost" id="exportBtn">Esporta copia</button>
+    <button class="ghost" id="importBtn">Importa copia</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <span class="hint" id="backupMsg"></span>
+  </div>
+  <p class="hint">Scrivi le formule con i nomi delle variabili, ad esempio <code>prezzo * (1 + iva/100)</code>. Operatori: <code>+ - * / ^</code> e parentesi. Funzioni: <code>radq</code>, <code>abs</code>, <code>arrotonda(x; 2)</code>, <code>min</code>, <code>max</code>, <code>log</code>, <code>ln</code>, <code>exp</code>, <code>sin</code>, <code>cos</code>, <code>tan</code>. Costanti: <code>pi</code>, <code>e</code>. Una formula può usare il risultato di un'altra scrivendo il suo nome, con <code>_</code> al posto degli spazi (es. <code>Prezzo_con_IVA * 2</code>).</p>
+</div>
+
+<script>
+(() => {
+  // ---------- Parser di espressioni (niente eval) ----------
+  const FUNCS = {
+    radq: Math.sqrt, sqrt: Math.sqrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil,
+    log: Math.log10, ln: Math.log, exp: Math.exp, sin: Math.sin, cos: Math.cos, tan: Math.tan,
+    min: Math.min, max: Math.max,
+    arrotonda: (x, n = 0) => { const p = Math.pow(10, n); return Math.round(x * p) / p; },
+    round: (x, n = 0) => { const p = Math.pow(10, n); return Math.round(x * p) / p; },
+  };
+  const CONSTS = { pi: Math.PI, e: Math.E };
+
+  function tokenize(src) {
+    src = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/(\d),(\d)/g, '$1.$2');
+    const t = []; let i = 0;
+    while (i < src.length) {
+      const c = src[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (/[0-9.]/.test(c)) { let j = i; while (j < src.length && /[0-9.]/.test(src[j])) j++; const s = src.slice(i, j); if (isNaN(+s)) throw new Error('Numero non valido: ' + s); t.push({ k: 'n', v: +s }); i = j; continue; }
+      if (/[A-Za-zÀ-ÿ_]/.test(c)) { let j = i; while (j < src.length && /[A-Za-zÀ-ÿ_0-9]/.test(src[j])) j++; t.push({ k: 'id', v: src.slice(i, j) }); i = j; continue; }
+      if ('+-*/^(),;'.includes(c)) { t.push({ k: c === ';' ? ',' : c }); i++; continue; }
+      throw new Error('Carattere non riconosciuto: ' + c);
+    }
+    return t;
+  }
+
+  function parse(src) {
+    const t = tokenize(src); let p = 0;
+    const peek = () => t[p], eat = k => { if (t[p] && t[p].k === k) return t[p++]; throw new Error(t[p] ? 'Atteso "' + k + '"' : 'La formula è incompleta'); };
+    function expr() { let n = term(); while (peek() && (peek().k === '+' || peek().k === '-')) { const op = t[p++].k; n = { op, a: n, b: term() }; } return n; }
+    function term() { let n = unary(); while (peek() && (peek().k === '*' || peek().k === '/')) { const op = t[p++].k; n = { op, a: n, b: unary() }; } return n; }
+    function unary() { if (peek() && (peek().k === '-' || peek().k === '+')) { const op = t[p++].k; const a = unary(); return op === '-' ? { op: 'neg', a } : a; } return power(); }
+    function power() { const b = primary(); if (peek() && peek().k === '^') { p++; return { op: '^', a: b, b: unary() }; } return b; }
+    function primary() {
+      const tk = peek(); if (!tk) throw new Error('La formula è incompleta');
+      if (tk.k === 'n') { p++; return { num: tk.v }; }
+      if (tk.k === '(') { p++; const n = expr(); eat(')'); return n; }
+      if (tk.k === 'id') {
+        p++;
+        if (peek() && peek().k === '(') {
+          const name = tk.v.toLowerCase(); if (!FUNCS[name]) throw new Error('Funzione sconosciuta: ' + tk.v);
+          p++; const args = []; if (peek() && peek().k !== ')') { args.push(expr()); while (peek() && peek().k === ',') { p++; args.push(expr()); } }
+          eat(')'); return { fn: name, args };
+        }
+        if (Object.prototype.hasOwnProperty.call(CONSTS, tk.v)) return { num: CONSTS[tk.v] };
+        return { v: tk.v };
+      }
+      throw new Error('Simbolo fuori posto: ' + (tk.k === 'n' ? tk.v : tk.k));
+    }
+    const ast = expr(); if (p < t.length) throw new Error('Simbolo fuori posto: ' + (t[p].v ?? t[p].k));
+    return ast;
+  }
+  function varsOf(ast, out = new Set()) {
+    if (!ast) return out;
+    if (ast.v) out.add(ast.v);
+    if (ast.a) varsOf(ast.a, out); if (ast.b) varsOf(ast.b, out);
+    if (ast.args) ast.args.forEach(x => varsOf(x, out));
+    return out;
+  }
+  function evalAst(n, get) {
+    if ('num' in n) return n.num;
+    if (n.v) return get(n.v);
+    if (n.fn) return FUNCS[n.fn](...n.args.map(x => evalAst(x, get)));
+    const a = evalAst(n.a, get);
+    switch (n.op) { case 'neg': return -a; case '+': return a + evalAst(n.b, get); case '-': return a - evalAst(n.b, get);
+      case '*': return a * evalAst(n.b, get); case '/': return a / evalAst(n.b, get); case '^': return Math.pow(a, evalAst(n.b, get)); }
+  }
+
+  // ---------- Stato ----------
+  const LS = 'formule.v1';
+  let state = { formulas: [] };
+  let openId = null, editing = null, confirmDel = false;
+  try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && Array.isArray(s.formulas)) state = s; } catch (_) {}
+
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const num = s => { if (s == null) return NaN; s = String(s).trim().replace(/\s/g, ''); if (s === '') return NaN; if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); return Number(s); };
+  const fmt = x => Number.isFinite(x) ? x.toLocaleString('it-IT', { maximumFractionDigits: 6 }) : '—';
+  const byName = name => state.formulas.find(f => f.name.trim() === name);
+  const slug = s => s.trim().replace(/\s+/g, '_');
+
+  function info(f) {
+    try { const ast = parse(f.expr); const vars = [...varsOf(ast)]; return { ast, vars, inputs: vars.filter(v => !refFormula(v, f)) }; }
+    catch (e) { return { error: e.message, vars: [], inputs: [] }; }
+  }
+  function refFormula(v, self) { const g = state.formulas.find(x => x !== self && slug(x.name) === v); return g || null; }
+
+  // calcola una formula; le variabili che sono nomi di altre formule usano i loro risultati
+  function compute(f, stack = []) {
+    if (stack.includes(f.id)) throw new Error('Riferimento circolare');
+    const i = info(f); if (i.error) throw new Error(i.error);
+    const missing = [];
+    const val = evalAst(i.ast, v => {
+      const g = refFormula(v, f);
+      if (g) { const r = compute(g, [...stack, f.id]); if (r.missing.length) missing.push(...r.missing); return r.value; }
+      const x = num(f.values && f.values[v]); if (!Number.isFinite(x)) missing.push(v); return x;
+    });
+    return { value: val, missing: [...new Set(missing)] };
+  }
+
+  // ---------- Salvataggio locale sul telefono ----------
+  const syncEl = document.getElementById('sync');
+  function save() {
+    try { localStorage.setItem(LS, JSON.stringify(state)); syncEl.textContent = 'Salvato sul telefono'; }
+    catch (_) { syncEl.textContent = 'Impossibile salvare: memoria piena o disattivata'; }
+  }
+  // chiede al sistema di non cancellare i dati dell'app
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
+
+  // ---------- Interfaccia ----------
+  const $ = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'class') el.className = v; else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (v != null) el.setAttribute(k, v); } kids.flat().forEach(c => c != null && el.append(c)); return el; };
+  const listEl = document.getElementById('list'), slot = document.getElementById('editorSlot'), addBtn = document.getElementById('addBtn');
+
+  const EXAMPLES = [
+    { name: 'Prezzo con IVA', expr: 'prezzo * (1 + iva/100)', unit: '€', values: { iva: '22' } },
+    { name: 'Prezzo scontato', expr: 'prezzo * (1 - sconto/100)', unit: '€', values: {} },
+    { name: 'Rata mutuo', expr: 'capitale * (tasso/1200) / (1 - (1 + tasso/1200)^(-anni*12))', unit: '€/mese', values: {} },
+  ];
+
+  function resultBox(f) {
+    let r; try { r = compute(f); } catch (e) { return $('div', { class: 'result' }, $('div', {}, $('div', { class: 'lbl' }, 'Errore'), $('div', { class: 'val na' }, e.message))); }
+    const ok = !r.missing.length && Number.isFinite(r.value);
+    const text = ok ? fmt(r.value) : (r.missing.length ? 'Inserisci ' + r.missing.join(', ') : 'Risultato non definito (es. divisione per zero)');
+    const valEl = $('div', { class: 'val' + (ok ? '' : ' na') }, text, ok && f.unit ? $('span', { class: 'unit' }, f.unit) : null);
+    const copy = ok ? $('button', { class: 'ghost', 'aria-label': 'Copia risultato', onclick: async e => { const b = e.currentTarget; const s = fmt(r.value); try { await navigator.clipboard.writeText(s); b.textContent = 'Copiato'; } catch (_) { const rg = document.createRange(); rg.selectNodeContents(valEl.firstChild ? valEl : valEl); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); b.textContent = 'Selezionato'; } setTimeout(() => b.textContent = 'Copia', 1400); } }, 'Copia') : null;
+    return $('div', { class: 'result', id: 'res-' + f.id }, $('div', { style: 'min-width:0' }, $('div', { class: 'lbl' }, 'Risultato'), valEl), copy);
+  }
+
+  function render() {
+    listEl.replaceChildren();
+    if (!state.formulas.length && !editing) {
+      listEl.append($('div', { class: 'empty' },
+        $('p', {}, 'Nessuna formula salvata. Creane una con "Nuova formula", oppure parti da un esempio:'),
+        $('div', { class: 'examples' }, EXAMPLES.map(ex => $('button', { onclick: () => { const f = { id: uid(), ...JSON.parse(JSON.stringify(ex)) }; state.formulas.push(f); openId = f.id; save(true); render(); } },
+          $('span', { class: 'f-name' }, ex.name), $('span', { class: 'f-expr' }, '= ' + ex.expr))))));
+    }
+    for (const f of state.formulas) {
+      const open = openId === f.id;
+      const card = $('div', { class: 'f' + (open ? ' open' : '') },
+        $('button', { class: 'f-head', 'aria-expanded': String(open), onclick: () => { openId = open ? null : f.id; confirmDel = false; render(); } },
+          $('span', { class: 'f-name' }, f.name), $('span', { class: 'f-expr' }, '= ' + f.expr)));
+      if (open) {
+        const i = info(f); f.values = f.values || {};
+        const body = $('div', { class: 'f-body' });
+        if (i.inputs.length) {
+          body.append($('div', { class: 'vars' }, i.inputs.map(v => $('label', { class: 'var' }, v,
+            $('input', { id: 'in-' + f.id + '-' + v, inputmode: 'decimal', autocomplete: 'off', value: f.values[v] ?? '', placeholder: '0',
+              oninput: e => { f.values[v] = e.target.value; const old = document.getElementById('res-' + f.id); old && old.replaceWith(resultBox(f)); save(); } })))));
+        }
+        const refs = i.vars.filter(v => refFormula(v, f));
+        if (refs.length) body.append($('div', { class: 'hint' }, 'Usa il risultato di: ' + refs.map(v => refFormula(v, f).name).join(', ')));
+        body.append(resultBox(f));
+        body.append($('div', { class: 'row' },
+          $('button', { onclick: () => { editing = { ...f, values: { ...f.values } }; render(); } }, 'Modifica'),
+          i.inputs.length ? $('button', { class: 'ghost', onclick: () => { f.values = {}; save(true); render(); } }, 'Svuota valori') : null));
+        card.append(body);
+      }
+      listEl.append(card);
+    }
+    renderEditor();
+    addBtn.hidden = !!editing;
+  }
+
+  function renderEditor() {
+    slot.replaceChildren();
+    if (!editing) return;
+    const isNew = !state.formulas.some(f => f.id === editing.id);
+    const varsBox = $('div', { class: 'chips' }), errBox = $('div', { class: 'err' });
+    const update = () => {
+      varsBox.replaceChildren(); errBox.textContent = '';
+      if (!editing.expr.trim()) return;
+      const i = info(editing);
+      if (i.error) { errBox.textContent = i.error; return; }
+      i.vars.forEach(v => varsBox.append($('span', { class: 'chip' }, v + (refFormula(v, editing) ? ' → formula' : ''))));
+    };
+    const finish = () => { editing = null; confirmDel = false; render(); };
+    const delRow = $('div', { class: 'confirm' });
+    const drawDel = () => { delRow.replaceChildren(); if (isNew) return;
+      if (!confirmDel) delRow.append($('button', { class: 'danger', onclick: () => { confirmDel = true; drawDel(); } }, 'Elimina'));
+      else delRow.append('Eliminare "' + editing.name + '"?', $('button', { class: 'danger', onclick: () => { state.formulas = state.formulas.filter(f => f.id !== editing.id); if (openId === editing.id) openId = null; save(true); finish(); } }, 'Sì, elimina'), $('button', { class: 'ghost', onclick: () => { confirmDel = false; drawDel(); } }, 'Annulla'));
+    };
+    drawDel();
+    const form = $('form', { class: 'editor', onsubmit: e => {
+      e.preventDefault();
+      if (!editing.name.trim()) { errBox.textContent = 'Dai un nome alla formula.'; return; }
+      const i = info(editing); if (!editing.expr.trim() || i.error) { errBox.textContent = i.error || 'Scrivi la formula.'; return; }
+      const clash = state.formulas.find(f => f.id !== editing.id && f.name.trim().toLowerCase() === editing.name.trim().toLowerCase());
+      if (clash) { errBox.textContent = 'Esiste già una formula con questo nome.'; return; }
+      const k = state.formulas.findIndex(f => f.id === editing.id);
+      if (k >= 0) state.formulas[k] = editing; else state.formulas.push(editing);
+      openId = editing.id; save(true); finish();
+    } },
+      $('h2', {}, isNew ? 'Nuova formula' : 'Modifica formula'),
+      $('label', { class: 'field' }, 'Nome', $('input', { id: 'ed-name', value: editing.name, placeholder: 'Es. Prezzo con IVA', oninput: e => { editing.name = e.target.value; } })),
+      $('label', { class: 'field' }, 'Formula', $('textarea', { id: 'ed-expr', placeholder: 'prezzo * (1 + iva/100)', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', oninput: e => { editing.expr = e.target.value; update(); } }, editing.expr)),
+      $('label', { class: 'field' }, 'Unità del risultato (facoltativa)', $('input', { id: 'ed-unit', value: editing.unit || '', placeholder: 'Es. €, kg, m²', oninput: e => { editing.unit = e.target.value; } })),
+      $('div', { class: 'field' }, 'Variabili trovate', varsBox), errBox,
+      $('div', { class: 'row' }, $('button', { class: 'primary', type: 'submit' }, 'Salva'), $('button', { type: 'button', class: 'ghost', onclick: finish }, 'Annulla'), $('span', { class: 'spacer' }), delRow));
+    slot.append(form); update();
+  }
+
+  // ---------- Copia di sicurezza ----------
+  const msg = document.getElementById('backupMsg');
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const json = JSON.stringify(state, null, 2);
+    const name = 'formule-' + new Date().toISOString().slice(0, 10) + '.json';
+    const file = new File([json], name, { type: 'application/json' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Formule' }); msg.textContent = ''; return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000); msg.textContent = 'File salvato: ' + name;
+  });
+  const fileIn = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', () => fileIn.click());
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files[0]; fileIn.value = ''; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.formulas)) throw 0;
+      let added = 0;
+      for (const x of d.formulas) { if (!x || typeof x.name !== 'string' || typeof x.expr !== 'string') continue;
+        if (state.formulas.some(g => g.name.trim().toLowerCase() === x.name.trim().toLowerCase())) continue;
+        state.formulas.push({ id: uid(), name: x.name, expr: x.expr, unit: x.unit || '', values: x.values || {} }); added++; }
+      save(); render(); msg.textContent = added ? 'Importate ' + added + ' formule' : 'Nessuna formula nuova nel file';
+    } catch (_) { msg.textContent = 'Il file non è una copia valida delle formule'; }
+  });
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+  addBtn.addEventListener('click', () => { editing = { id: uid(), name: '', expr: '', unit: '', values: {} }; render(); setTimeout(() => document.getElementById('ed-name')?.focus(), 0); });
+  render();
+})();
+</script>
+
+</body>
+</html>
