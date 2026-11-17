@@ -117,12 +117,17 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <span class="hint" id="backupMsg"></span>
   </div>
-  <p class="hint">Scrivi le formule con i nomi delle variabili, ad esempio <code>prezzo * (1 + iva/100)</code>. Operatori: <code>+ - * / ^</code> e parentesi. Funzioni: <code>radq</code>, <code>abs</code>, <code>arrotonda(x; 2)</code>, <code>min</code>, <code>max</code>, <code>log</code>, <code>ln</code>, <code>exp</code>, <code>sin</code>, <code>cos</code>, <code>tan</code>. Costanti: <code>pi</code>, <code>e</code>. Una formula può usare il risultato di un'altra scrivendo il suo nome, con <code>_</code> al posto degli spazi (es. <code>Prezzo_con_IVA * 2</code>).</p>
+  <p class="hint">Scrivi le formule con i nomi delle variabili, ad esempio <code>prezzo * (1 + iva/100)</code>. Operatori: <code>+ - * / ^</code> e parentesi. Funzioni: <code>radq</code>, <code>abs</code>, <code>arrotonda(x; 2)</code>, <code>min</code>, <code>max</code>, <code>log</code>, <code>ln</code>, <code>exp</code>, <code>sin</code>, <code>cos</code>, <code>tan</code>. Esadecimali e binari: <code>DECIMALE.HEX(x)</code>, <code>HEX.DECIMALE("1A3F")</code>, <code>DECIMALE.BINARIO</code>, <code>BINARIO.DECIMALE</code>. Date: <code>GIORNO(OGGI())</code>, <code>MESE(OGGI())</code>, <code>ANNO(OGGI())</code>. Costanti: <code>pi</code>, <code>e</code>. I nomi delle variabili possono avere spazi (<code>giorno del mese</code>). Una formula può usare il risultato di un'altra scrivendo il suo nome.</p>
 </div>
 
 <script>
 (() => {
   // ---------- Parser di espressioni (niente eval) ----------
+  function toNum(x, what) {
+    if (typeof x === 'number') return x;
+    if (x && typeof x === 'object') throw new Error('"' + x.text + '" è un testo: usa HEX.DECIMALE per convertirlo in numero');
+    throw new Error('Valore non numerico' + (what ? ' in ' + what : ''));
+  }
   const FUNCS = {
     radq: Math.sqrt, sqrt: Math.sqrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil,
     log: Math.log10, ln: Math.log, exp: Math.exp, sin: Math.sin, cos: Math.cos, tan: Math.tan,
@@ -130,16 +135,52 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
     arrotonda: (x, n = 0) => { const p = Math.pow(10, n); return Math.round(x * p) / p; },
     round: (x, n = 0) => { const p = Math.pow(10, n); return Math.round(x * p) / p; },
   };
+  const toInt = (x, what) => { const n = toNum(x, what); return Math.trunc(n); };
+  function dec2hex(x, cifre) {
+    const n = toInt(x, 'DECIMALE.HEX');
+    let h = n >= 0 ? BigInt(n).toString(16) : (BigInt(n) + (1n << 40n)).toString(16); // negativi come Excel (complemento a 2 su 10 cifre)
+    h = h.toUpperCase();
+    if (cifre != null) { const c = toInt(cifre, 'cifre'); if (h.length > c) throw new Error('Il risultato ha più di ' + c + ' cifre'); h = h.padStart(c, '0'); }
+    return { text: h };
+  }
+  function hex2dec(x) {
+    const h = (typeof x === 'object' && x ? x.text : String(x)).trim();
+    if (!/^[0-9a-fA-F]{1,10}$/.test(h)) throw new Error('"' + h + '" non è un numero esadecimale');
+    let n = parseInt(h, 16); if (h.length === 10 && n >= 2 ** 39) n -= 2 ** 40; return n;
+  }
+  function dec2bin(x, cifre) { const n = toInt(x, 'DECIMALE.BINARIO'); let b = (n >= 0 ? n : n + 1024).toString(2); if (cifre != null) b = b.padStart(toInt(cifre), '0'); return { text: b }; }
+  function bin2dec(x) { const b = (typeof x === 'object' && x ? x.text : String(x)).trim(); if (!/^[01]{1,10}$/.test(b)) throw new Error('"' + b + '" non è un numero binario'); return parseInt(b, 2); }
+  // date in stile Excel: numero di giorni dal 30/12/1899
+  const DAY = 86400000, EPOCH = Date.UTC(1899, 11, 30);
+  const serialToDate = x => new Date(EPOCH + Math.floor(toNum(x, 'data')) * DAY);
+  const oggi = () => { const d = new Date(); return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCH) / DAY); };
+  Object.assign(FUNCS, {
+    'decimale.hex': dec2hex, dec2hex: dec2hex, 'hex.decimale': hex2dec, hex2dec: hex2dec,
+    'decimale.binario': dec2bin, dec2bin: dec2bin, 'binario.decimale': bin2dec, bin2dec: bin2dec,
+    oggi: oggi, today: oggi,
+    giorno: x => serialToDate(x).getUTCDate(), day: x => serialToDate(x).getUTCDate(),
+    mese: x => serialToDate(x).getUTCMonth() + 1, month: x => serialToDate(x).getUTCMonth() + 1,
+    anno: x => serialToDate(x).getUTCFullYear(), year: x => serialToDate(x).getUTCFullYear(),
+    'int': x => Math.floor(toNum(x)), tronca: x => Math.trunc(toNum(x)),
+  });
   const CONSTS = { pi: Math.PI, e: Math.E };
 
   function tokenize(src) {
-    src = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/(\d),(\d)/g, '$1.$2');
+    src = src.replace(/^\s*=/, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/(\d),(\d)/g, '$1.$2');
     const t = []; let i = 0;
+    const i0 = k => { let m = k; while (m > 0 && /\s/.test(src[m - 1])) m--; return m; };
     while (i < src.length) {
       const c = src[i];
       if (/\s/.test(c)) { i++; continue; }
       if (/[0-9.]/.test(c)) { let j = i; while (j < src.length && /[0-9.]/.test(src[j])) j++; const s = src.slice(i, j); if (isNaN(+s)) throw new Error('Numero non valido: ' + s); t.push({ k: 'n', v: +s }); i = j; continue; }
-      if (/[A-Za-zÀ-ÿ_]/.test(c)) { let j = i; while (j < src.length && /[A-Za-zÀ-ÿ_0-9]/.test(src[j])) j++; t.push({ k: 'id', v: src.slice(i, j) }); i = j; continue; }
+      if (c === '"') { const j = src.indexOf('"', i + 1); if (j < 0) throw new Error('Manca una virgoletta di chiusura'); t.push({ k: 's', v: src.slice(i + 1, j) }); i = j + 1; continue; }
+      if (/[A-Za-zÀ-ÿ_]/.test(c)) {
+        let j = i; while (j < src.length && (/[A-Za-zÀ-ÿ_0-9]/.test(src[j]) || (src[j] === '.' && /[A-Za-zÀ-ÿ]/.test(src[j + 1] || '')))) j++;
+        const word = src.slice(i, j), prev = t[t.length - 1];
+        // parole vicine separate solo da spazi formano un unico nome: "giorno del mese"
+        if (prev && prev.k === 'id' && prev.end === i0(i)) { prev.v += ' ' + word; prev.end = j; } else t.push({ k: 'id', v: word, end: j });
+        i = j; continue;
+      }
       if ('+-*/^(),;'.includes(c)) { t.push({ k: c === ';' ? ',' : c }); i++; continue; }
       throw new Error('Carattere non riconosciuto: ' + c);
     }
@@ -156,6 +197,7 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
     function primary() {
       const tk = peek(); if (!tk) throw new Error('La formula è incompleta');
       if (tk.k === 'n') { p++; return { num: tk.v }; }
+      if (tk.k === 's') { p++; return { str: tk.v }; }
       if (tk.k === '(') { p++; const n = expr(); eat(')'); return n; }
       if (tk.k === 'id') {
         p++;
@@ -164,7 +206,7 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
           p++; const args = []; if (peek() && peek().k !== ')') { args.push(expr()); while (peek() && peek().k === ',') { p++; args.push(expr()); } }
           eat(')'); return { fn: name, args };
         }
-        if (Object.prototype.hasOwnProperty.call(CONSTS, tk.v)) return { num: CONSTS[tk.v] };
+        if (Object.prototype.hasOwnProperty.call(CONSTS, tk.v.toLowerCase())) return { num: CONSTS[tk.v.toLowerCase()] };
         return { v: tk.v };
       }
       throw new Error('Simbolo fuori posto: ' + (tk.k === 'n' ? tk.v : tk.k));
@@ -181,11 +223,17 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
   }
   function evalAst(n, get) {
     if ('num' in n) return n.num;
+    if ('str' in n) return { text: n.str };
     if (n.v) return get(n.v);
-    if (n.fn) return FUNCS[n.fn](...n.args.map(x => evalAst(x, get)));
-    const a = evalAst(n.a, get);
-    switch (n.op) { case 'neg': return -a; case '+': return a + evalAst(n.b, get); case '-': return a - evalAst(n.b, get);
-      case '*': return a * evalAst(n.b, get); case '/': return a / evalAst(n.b, get); case '^': return Math.pow(a, evalAst(n.b, get)); }
+    if (n.fn) {
+      const args = n.args.map(x => evalAst(x, get)), f = FUNCS[n.fn];
+      const textArgs = ['hex.decimale', 'hex2dec', 'binario.decimale', 'bin2dec'].includes(n.fn);
+      return f(...(textArgs ? args : args.map(x => toNum(x, n.fn.toUpperCase()))));
+    }
+    const a = toNum(evalAst(n.a, get));
+    const b = () => toNum(evalAst(n.b, get));
+    switch (n.op) { case 'neg': return -a; case '+': return a + b(); case '-': return a - b();
+      case '*': return a * b(); case '/': return a / b(); case '^': return Math.pow(a, b()); }
   }
 
   // ---------- Stato ----------
@@ -196,7 +244,7 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
 
   const uid = () => Math.random().toString(36).slice(2, 10);
   const num = s => { if (s == null) return NaN; s = String(s).trim().replace(/\s/g, ''); if (s === '') return NaN; if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); return Number(s); };
-  const fmt = x => Number.isFinite(x) ? x.toLocaleString('it-IT', { maximumFractionDigits: 6 }) : '—';
+  const fmt = x => (x && typeof x === 'object') ? x.text : Number.isFinite(x) ? x.toLocaleString('it-IT', { maximumFractionDigits: 6 }) : '—';
   const byName = name => state.formulas.find(f => f.name.trim() === name);
   const slug = s => s.trim().replace(/\s+/g, '_');
 
@@ -204,18 +252,24 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
     try { const ast = parse(f.expr); const vars = [...varsOf(ast)]; return { ast, vars, inputs: vars.filter(v => !refFormula(v, f)) }; }
     catch (e) { return { error: e.message, vars: [], inputs: [] }; }
   }
-  function refFormula(v, self) { const g = state.formulas.find(x => x !== self && slug(x.name) === v); return g || null; }
+  function refFormula(v, self) { const k = v.toLowerCase(); const g = state.formulas.find(x => x !== self && (slug(x.name).toLowerCase() === k || x.name.trim().replace(/\s+/g, ' ').toLowerCase() === k)); return g || null; }
 
   // calcola una formula; le variabili che sono nomi di altre formule usano i loro risultati
   function compute(f, stack = []) {
     if (stack.includes(f.id)) throw new Error('Riferimento circolare');
     const i = info(f); if (i.error) throw new Error(i.error);
     const missing = [];
-    const val = evalAst(i.ast, v => {
+    const run = () => evalAst(i.ast, v => {
       const g = refFormula(v, f);
       if (g) { const r = compute(g, [...stack, f.id]); if (r.missing.length) missing.push(...r.missing); return r.value; }
-      const x = num(f.values && f.values[v]); if (!Number.isFinite(x)) missing.push(v); return x;
+      const raw = f.values && f.values[v]; const x = num(raw);
+      if (Number.isFinite(x)) return x;
+      if (raw != null && String(raw).trim() !== '') return { text: String(raw).trim() };
+      missing.push(v); return NaN;
     });
+    let val;
+    // se mancano dei valori, chiedi quelli invece di mostrare l'errore che ne deriva
+    try { val = run(); } catch (e) { if (!missing.length) throw e; val = NaN; }
     return { value: val, missing: [...new Set(missing)] };
   }
 
@@ -239,8 +293,8 @@ label.var input { font-family: var(--mono); font-size: 18px; font-variant-numeri
   ];
 
   function resultBox(f) {
-    let r; try { r = compute(f); } catch (e) { return $('div', { class: 'result' }, $('div', {}, $('div', { class: 'lbl' }, 'Errore'), $('div', { class: 'val na' }, e.message))); }
-    const ok = !r.missing.length && Number.isFinite(r.value);
+    let r; try { r = compute(f); } catch (e) { return $('div', { class: 'result', id: 'res-' + f.id }, $('div', {}, $('div', { class: 'lbl' }, 'Errore'), $('div', { class: 'val na' }, e.message))); }
+    const ok = !r.missing.length && (Number.isFinite(r.value) || (r.value && typeof r.value === 'object'));
     const text = ok ? fmt(r.value) : (r.missing.length ? 'Inserisci ' + r.missing.join(', ') : 'Risultato non definito (es. divisione per zero)');
     const valEl = $('div', { class: 'val' + (ok ? '' : ' na') }, text, ok && f.unit ? $('span', { class: 'unit' }, f.unit) : null);
     const copy = ok ? $('button', { class: 'ghost', 'aria-label': 'Copia risultato', onclick: async e => { const b = e.currentTarget; const s = fmt(r.value); try { await navigator.clipboard.writeText(s); b.textContent = 'Copiato'; } catch (_) { const rg = document.createRange(); rg.selectNodeContents(valEl.firstChild ? valEl : valEl); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); b.textContent = 'Selezionato'; } setTimeout(() => b.textContent = 'Copia', 1400); } }, 'Copia') : null;
